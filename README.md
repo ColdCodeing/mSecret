@@ -1,0 +1,2 @@
+# mSecret
+Android AES encryption
