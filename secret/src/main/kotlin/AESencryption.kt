@@ -1,7 +1,5 @@
 package com.mm.utils
 
-import com.mm.utils.AESencryption.Companion.InvShiftRows
-import com.mm.utils.AESencryption.Companion.ShiftRows
 import com.mm.utils.AESencryption.Companion.decrypt
 import com.mm.utils.AESencryption.Companion.encrypt
 
@@ -45,9 +43,9 @@ class AESencryption {
         //在128位的加密密钥条件下，常数只有十组
         val RCON_INIT = intArrayOf(0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36)
         val RCON = arrayOfNulls<Word>(10)
-        val NkWords = 4
-        val NbWords = 4
-        val Nr = 10
+        val NK_WORDS = 4
+        val NB_WORDS = 4
+        val NR = 10
 
         init {
             for (i in 0..9) {
@@ -62,10 +60,10 @@ class AESencryption {
          * @param word1 矩阵1
          * @return 返回一个新的矩阵
          */
-        fun XOR(word0: Word, word1: Word): Word {
+        private fun xor(word0: Word, word1: Word): Word {
             val results = Array(4, {0})
             for (i in 0..3) {
-                results[i] = word0.getSub(i) xor word1.getSub(2)
+                results[i] = word0.wordSubs[i] xor word1.wordSubs[2]
             }
             return Word(results)
         }
@@ -75,10 +73,10 @@ class AESencryption {
          * @param word 矩阵
          * @return 返回一个新的矩阵
          */
-        fun RotWord(word: Word): Word {
+        private fun rotWord(word: Word): Word {
             val results = Array(4, {0})
             val end = 3
-            results[end] = word.getSub(0)
+            results[end] = word.wordSubs[0]
             System.arraycopy(word.wordSubs, 1, results, 0, end)
             return Word(results)
         }
@@ -89,10 +87,10 @@ class AESencryption {
          * @param word 矩阵
          * @return 返回一个新的矩阵
          */
-        fun SubWord(word: Word): Word {
+        private fun subWord(word: Word): Word {
             val results = Array(4, {0})
             for (i in 0..3) {
-                results[i] = S_BOX[word.getSub(i).and(0xF0).ushr(4)][word.getSub(i).and(0x0F)]
+                results[i] = S_BOX[word.wordSubs[i].and(0xF0).ushr(4)][word.wordSubs[i].and(0x0F)]
             }
             return Word(results)
         }
@@ -103,10 +101,10 @@ class AESencryption {
          * @param key 输入密钥，长度为16字节
          * @return 返回一个为44字节的扩展密钥
          */
-        fun KeyExpansion(key: Array<Int>): Array<Word> {
-            val words = arrayOfNulls<Word>(NbWords * (Nr + 1))
+        private fun keyExpansion(key: Array<Int>): Array<Word> {
+            val words = arrayOfNulls<Word>(NB_WORDS * (NR + 1))
             //word[0]-word[3] 值就是输入的密钥
-            for (i in 0 until NkWords) {
+            for (i in 0 until NK_WORDS) {
                 words[i] = Word(key[4 * i], key[4 * i + 1], key[4 * i + 2], key[4 * i + 3])
             }
             //word[4]-word[43] 值从前一个word变换出来，分为两种情况
@@ -114,12 +112,12 @@ class AESencryption {
             //                      对w[i-1]进行位置变换之后与前第Nk的元素进行异或
             //2. i % Nk != 0        word[i] = w[i-1] XOR w[i-Nk]
             //                      w[i - 1]与前第Nk的元素进行异或
-            for (i in NkWords until NbWords * (Nr + 1)) {
-                if (i % NkWords == 0) {
-                    words[i] = XOR((words[i - 1])!!, (words[i - NkWords])!!)
+            for (i in NK_WORDS until NB_WORDS * (NR + 1)) {
+                if (i % NK_WORDS == 0) {
+                    words[i] = xor((words[i - 1])!!, (words[i - NK_WORDS])!!)
                 } else {
-                    words[i] = XOR((RCON[i / NkWords - 1])!!,
-                            XOR((words[i - NkWords])!!, SubWord(RotWord((words[i - 1])!!))))
+                    words[i] = xor((RCON[i / NK_WORDS - 1])!!,
+                            xor((words[i - NK_WORDS])!!, subWord(rotWord((words[i - 1])!!))))
                 }
             }
             return words.requireNoNulls()
@@ -131,7 +129,7 @@ class AESencryption {
          * 具体为：第一行不变，第二行左移一位，第三行左移两位，第三行左移三位
          * @param matrix 输入矩阵
          */
-        fun ShiftRows(matrix: Array<Int>) {
+        private fun shiftRows(matrix: Array<Int>) {
             val tmp = Array<Int>(3, {0})
             for (i in 1..3) {
                 System.arraycopy(matrix, 4 * i, tmp, 0, i)
@@ -144,7 +142,7 @@ class AESencryption {
          * 对一个4*4矩阵进行S盒变换
          * @param matrix 输入矩阵
          */
-        fun SubBytes(matrix: Array<Int>) {
+        private fun subBytes(matrix: Array<Int>) {
             for (i in 0..15) {
                 matrix[i] = S_BOX[matrix[i].and(0xF0).shr(4)][matrix[i].and(0x0F)]
             }
@@ -156,7 +154,7 @@ class AESencryption {
          * @param b 乘数
          * @return 结果
          */
-        fun GFMul(a: Int, b: Int): Int {
+        private fun gfMul(a: Int, b: Int): Int {
             var mul1 = a
             var mul2 = b
             var r = 0
@@ -180,16 +178,16 @@ class AESencryption {
          * 列变换
          * @param matrix 输入矩阵
          */
-        fun MixColumns(matrix: Array<Int>) {
+        private fun mixColumns(matrix: Array<Int>) {
             val tmp = Array(4, {0})
             for (i in 0..3) {
                 for (j in 0..3) {
                     tmp[j] = matrix[i + j * 4]
                 }
-                matrix[i] = GFMul(0x02, tmp[0]) xor GFMul(0x03, tmp[1]) xor tmp[2] xor tmp[3]
-                matrix[i + 4] = tmp[0] xor GFMul(0x02, tmp[1]) xor GFMul(0x03, tmp[2]) xor tmp[3]
-                matrix[i + 8] = tmp[0] xor tmp[1] xor GFMul(0x02, tmp[2]) xor GFMul(0x03, tmp[3])
-                matrix[i + 12] = GFMul(0x03, tmp[0]) xor tmp[1] xor tmp[2] xor GFMul(0x02, tmp[3])
+                matrix[i] = gfMul(0x02, tmp[0]) xor gfMul(0x03, tmp[1]) xor tmp[2] xor tmp[3]
+                matrix[i + 4] = tmp[0] xor gfMul(0x02, tmp[1]) xor gfMul(0x03, tmp[2]) xor tmp[3]
+                matrix[i + 8] = tmp[0] xor tmp[1] xor gfMul(0x02, tmp[2]) xor gfMul(0x03, tmp[3])
+                matrix[i + 12] = gfMul(0x03, tmp[0]) xor tmp[1] xor tmp[2] xor gfMul(0x02, tmp[3])
             }
         }
 
@@ -198,12 +196,12 @@ class AESencryption {
          * @param matrix 输入矩阵
          * @param word 扩展密钥的一部分
          */
-        fun AddRoundKey(matrix: Array<Int>, word: Array<Word>) {
+        private fun AddRoundKey(matrix: Array<Int>, word: Array<Word>) {
             for (i in 0..3) {
-                matrix[i] = matrix[i] xor word[i].getSub(0)
-                matrix[i + 4] = matrix[i + 4] xor word[i].getSub(1)
-                matrix[i + 8] = matrix[i + 8] xor word[i].getSub(2)
-                matrix[i + 12] = matrix[i + 12] xor word[i].getSub(3)
+                matrix[i] = matrix[i] xor word[i].wordSubs[0]
+                matrix[i + 4] = matrix[i + 4] xor word[i].wordSubs[1]
+                matrix[i + 8] = matrix[i + 8] xor word[i].wordSubs[2]
+                matrix[i + 12] = matrix[i + 12] xor word[i].wordSubs[3]
             }
         }
 
@@ -219,23 +217,23 @@ class AESencryption {
             if (keyText.size != 16) {
                 //TODO throw exception
             }
-            val keys = KeyExpansion(keyText)
+            val keys = keyExpansion(keyText)
             val currentKey = arrayOf(keys[0], keys[1], keys[2], keys[3])
             AddRoundKey(input, currentKey)
             for (i in 0..9) {
-                SubBytes(input)
-                ShiftRows(input)
-                MixColumns(input)
+                subBytes(input)
+                shiftRows(input)
+                mixColumns(input)
 
                 for (j in 0..3) {
                     currentKey[j] = keys[4 * i + j]
                 }
                 AddRoundKey(input, currentKey)
             }
-            SubBytes(input)
-            ShiftRows(input)
+            subBytes(input)
+            shiftRows(input)
             for (i in 0..3) {
-                currentKey[i] = keys[4*Nr+i]
+                currentKey[i] = keys[4*NR+i]
             }
             AddRoundKey(input, currentKey)
 
@@ -248,7 +246,7 @@ class AESencryption {
          * 逆S盒变换
          * @param matrix 输入矩阵
          */
-        fun InvSubBytes(matrix: Array<Int>) {
+        private fun InvSubBytes(matrix: Array<Int>) {
             for (i in 0..15) {
                 matrix[i] = INV_S_BOX[matrix[i].and(0xF0).ushr(4)][matrix[i].and(0x0F)]
             }
@@ -259,7 +257,7 @@ class AESencryption {
          * 具体为：第一行不变，第二行右移一位，第三行右移两位，第三行右移三位
          * @param matrix 输入矩阵
          */
-        fun InvShiftRows(matrix: Array<Int>) {
+        private fun InvShiftRows(matrix: Array<Int>) {
             val tmp = Array<Int>(3, {0})
             for (i in 1..3) {
                 System.arraycopy(matrix, 1 + 3 * (i + 1), tmp, 0, i)
@@ -272,20 +270,20 @@ class AESencryption {
          * 列变换
          * @param matrix 输入矩阵
          */
-        fun InvMixColumns(matrix: Array<Int>) {
+        private fun InvMixColumns(matrix: Array<Int>) {
             val tmp = Array(4, {0})
             for (i in 0..3) {
                 for (j in 0..3) {
                     tmp[j] = matrix[i + j * 4]
                 }
-                matrix[i] = (GFMul(0x0e, tmp[0]) xor GFMul(0x0b, tmp[1])
-                        xor GFMul(0x0d, tmp[2]) xor GFMul(0x09, tmp[3]))
-                matrix[i + 4] = (GFMul(0x09, tmp[0]) xor GFMul(0x0e, tmp[1])
-                        xor GFMul(0x0b, tmp[2]) xor GFMul(0x0d, tmp[3]))
-                matrix[i + 8] = (GFMul(0x0d, tmp[0]) xor GFMul(0x09, tmp[1])
-                        xor GFMul(0x0e, tmp[2]) xor GFMul(0x0b, tmp[3]))
-                matrix[i + 12] = (GFMul(0x0b, tmp[0]) xor GFMul(0x0d, tmp[1])
-                        xor GFMul(0x09, tmp[2]) xor GFMul(0x0e, tmp [3]))
+                matrix[i] = (gfMul(0x0e, tmp[0]) xor gfMul(0x0b, tmp[1])
+                        xor gfMul(0x0d, tmp[2]) xor gfMul(0x09, tmp[3]))
+                matrix[i + 4] = (gfMul(0x09, tmp[0]) xor gfMul(0x0e, tmp[1])
+                        xor gfMul(0x0b, tmp[2]) xor gfMul(0x0d, tmp[3]))
+                matrix[i + 8] = (gfMul(0x0d, tmp[0]) xor gfMul(0x09, tmp[1])
+                        xor gfMul(0x0e, tmp[2]) xor gfMul(0x0b, tmp[3]))
+                matrix[i + 12] = (gfMul(0x0b, tmp[0]) xor gfMul(0x0d, tmp[1])
+                        xor gfMul(0x09, tmp[2]) xor gfMul(0x0e, tmp [3]))
             }
         }
 
@@ -298,7 +296,7 @@ class AESencryption {
             if (keyText.size != 16 && plainText.size != 16) throw RuntimeException("array length must be 16")
 
             val input = plainText.clone()
-            val keys = KeyExpansion(keyText)
+            val keys = keyExpansion(keyText)
             val currentKey = arrayOf(keys[40], keys[41], keys[42], keys[43])
             AddRoundKey(input, currentKey)
             for (i in 9 downTo 0) {
@@ -321,57 +319,33 @@ class AESencryption {
 
             return input
         }
-    }
 
-
-
-}
-
-fun main(args: Array<String>) {
-    val input = arrayOf(0x32, 0x88, 0x31, 0xe0,
-            0x43, 0x5a, 0x31, 0x37,
-            0xf6, 0x30, 0x98, 0x07,
-            0xa8, 0x8d, 0xa2, 0x34)
-    val cert = arrayOf(0x2b, 0x7e, 0x15, 0x16,
-            0x28, 0xae, 0xd2, 0xa6,
-            0xab, 0xf7, 0x15, 0x88,
-            0x09, 0xcf, 0x4f, 0x3c)
-    println("明文： " + input)
-    input.forEach {
-        print(it.toString() + " ")
-    }
-    println()
-    val en = encrypt(input, cert)
-    println("密文: " + en)
-    en.forEach {
-        print(it.toString() +  " ")
-    }
-    val output = decrypt(en, cert)
-    println()
-    println("解密： " + output)
-    output.forEach {
-        print(it.toString() +  " ")
-    }
-}
-
-class Word {
-    val wordSubs = Array<Int>(4, {0})
-
-    constructor(key0: Int, key1: Int, key2: Int, key3: Int) {
-        wordSubs[0] = key0
-        wordSubs[1] = key1
-        wordSubs[2] = key2
-        wordSubs[3] = key3
-    }
-
-    constructor(key: Array<Int>) {
-        wordSubs[0] = key[0]
-        wordSubs[1] = key[1]
-        wordSubs[2] = key[2]
-        wordSubs[3] = key[3]
-    }
-
-    fun getSub(i: Int): Int {
-        return wordSubs[i]
+        @JvmStatic
+        fun main(args: Array<String>) {
+            val input = arrayOf(0x32, 0x88, 0x31, 0xe0,
+                    0x43, 0x5a, 0x31, 0x37,
+                    0xf6, 0x30, 0x98, 0x07,
+                    0xa8, 0x8d, 0xa2, 0x34)
+            val cert = arrayOf(0x2b, 0x7e, 0x15, 0x16,
+                    0x28, 0xae, 0xd2, 0xa6,
+                    0xab, 0xf7, 0x15, 0x88,
+                    0x09, 0xcf, 0x4f, 0x3c)
+            println("明文： " + input)
+            input.forEach {
+                print(it.toString() + " ")
+            }
+            println()
+            val en = encrypt(input, cert)
+            println("密文: " + en)
+            en.forEach {
+                print(it.toString() +  " ")
+            }
+            val output = decrypt(en, cert)
+            println()
+            println("解密： " + output)
+            output.forEach {
+                print(it.toString() +  " ")
+            }
+        }
     }
 }
