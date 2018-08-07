@@ -1,8 +1,5 @@
 package com.mm.utils
 
-import com.mm.utils.AESencryption.Companion.decrypt
-import com.mm.utils.AESencryption.Companion.encrypt
-
 class AESencryption {
     companion object {
         val S_BOX = arrayOf(
