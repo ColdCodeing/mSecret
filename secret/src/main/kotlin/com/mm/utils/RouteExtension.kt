@@ -2,8 +2,10 @@
 
 package com.mm.utils
 
-import com.mm.http.*
-import com.sun.xml.internal.ws.spi.db.BindingContextFactory.LOGGER
+import com.mm.Const.REQ_FORM_ERROR
+import com.mm.Const.REQ_PARAM_ERROR
+import com.mm.Const.REQ_PATH_PARAM_ERROR
+import com.mm.Const.SESSION_ERROR
 import io.vertx.core.Vertx
 import io.vertx.core.json.Json
 import io.vertx.ext.web.Route
@@ -11,7 +13,6 @@ import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.*
 import io.vertx.ext.web.sstore.LocalSessionStore
-import io.vertx.groovy.ext.sql.SQLRowStream_GroovyExtension.handler
 import io.vertx.kotlin.coroutines.dispatcher
 import kotlinx.coroutines.experimental.launch
 
@@ -39,7 +40,7 @@ inline fun <reified T> RoutingContext.getReqParam(key: String, required: Boolean
     }
 }
 
-inline fun <reified T> RoutingContext.getPathParam(key: String, required: Boolean): T {
+inline fun <reified T> RoutingContext.getPathParam(key: String, required: Boolean): T? {
     if (required) {
         val value: String = this.pathParam(key)
                 ?: throw AppRuntimeException("path param %s is empty".format(key), REQ_PATH_PARAM_ERROR)
@@ -53,13 +54,27 @@ inline fun <reified T> RoutingContext.getPathParam(key: String, required: Boolea
     }
 }
 
-inline fun <reified T> RoutingContext.getFormParam(key: String, required: Boolean): T {
+inline fun <reified T> RoutingContext.getFormParam(key: String, required: Boolean): T? {
     if (required) {
         val value: String = this.request().getFormAttribute(key)
                 ?: throw AppRuntimeException("form param %s is empty".format(key), REQ_FORM_ERROR)
         return convert<T>(value)
     } else {
         val value: String = this.request().getFormAttribute(key)
+        if (value != null) {
+            return convert<T>(value)
+        }
+        return value
+    }
+}
+
+inline fun <reified T> RoutingContext.getHeader(key: String, required: Boolean): T? {
+    if (required) {
+        val value: String = this.request().getHeader(key)
+                ?: throw AppRuntimeException("header %s is empty".format(key), REQ_FORM_ERROR)
+        return convert<T>(value)
+    } else {
+        val value: String = this.request().getHeader(key)
         if (value != null) {
             return convert<T>(value)
         }
@@ -100,7 +115,7 @@ inline fun <reified T> convert(value: String): T {
     }
 }
 
-fun Router.defaultInit(vertx: Vertx): Router {
+fun Router.init(vertx: Vertx): Router {
     this.route().handler(CookieHandler.create())
     this.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)))
     this.route().handler(BodyHandler.create())
@@ -108,16 +123,13 @@ fun Router.defaultInit(vertx: Vertx): Router {
     return this
 }
 
-fun RoutingContext.responseJson(obj: Any) {
-    this.response().statusCode = 200
-    if (this.acceptableContentType == "application/json") {
-        this.response().putHeader("content-type", "application/json")
-        if (obj is String) {
-            this.response().end(obj)
-        } else {
-            this.response().end(Json.encode(obj))
-        }
-
+fun RoutingContext.responseJson(statusCode: Int, obj: Any) {
+    this.response().statusCode = statusCode
+    this.response().putHeader("content-type", "application/json")
+    if (obj is String) {
+        this.response().end(obj)
+    } else {
+        this.response().end(Json.encode(obj))
     }
 }
 
@@ -128,7 +140,7 @@ fun Route.coroutineHandler(handle: suspend (RoutingContext) -> Unit,
             try {
                 authHandle(ctx)
                 handle(ctx)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 ctx.fail(e)
             }
         }
@@ -140,7 +152,7 @@ fun Route.coroutineHandler(handle: suspend (RoutingContext) -> Unit) {
         launch(ctx.vertx().dispatcher()) {
             try {
                 handle(ctx)
-            } catch (e: Exception) {
+            } catch(e: Exception) {
                 ctx.fail(e)
             }
         }

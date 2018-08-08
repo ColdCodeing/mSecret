@@ -38,6 +38,24 @@ suspend fun SQLClient.queryWithParams(sql: String, args: JsonArray): ResultSet =
     }
 }
 
+suspend fun SQLClient.queryWithParams(sql: String, vararg args: Any?): ResultSet = suspendCoroutine { cont ->
+    val params = JsonArray()
+    args.forEach {
+        if (it != null) {
+            params.add(it)
+        } else {
+            params.addNull()
+        }
+    }
+    this.queryWithParams(sql, params) { conn ->
+        if (conn.succeeded()) {
+            cont.resume(conn.result())
+        } else {
+            cont.resumeWithException(conn.cause())
+        }
+    }
+}
+
 suspend fun SQLClient.update(sql: String): UpdateResult = suspendCoroutine { cont ->
     this.update(sql) { conn ->
         if (conn.succeeded()) {

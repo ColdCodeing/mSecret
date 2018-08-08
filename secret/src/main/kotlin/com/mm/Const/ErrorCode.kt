@@ -1,4 +1,6 @@
-package com.mm.http
+package com.mm.Const
+
+const val TOKEN_EXPIRED = 4001
 
 const val UNKNOW_ERROR = 5000
 const val REQ_PARAM_ERROR = 5002

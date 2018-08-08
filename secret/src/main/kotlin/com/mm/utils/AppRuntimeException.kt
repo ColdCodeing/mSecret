@@ -1,6 +1,6 @@
 package com.mm.utils
 
-class AppRuntimeException : Exception {
+class AppRuntimeException : RuntimeException {
     var code: Int = 0
 
     constructor(message: String, code: Int) : super(message) {
