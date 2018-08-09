@@ -1,7 +1,7 @@
 package com.mm.utils
 
 class Word {
-    val wordSubs = Array<Int>(4, {0})
+    val wordSubs = Array(4, {0})
 
     constructor(key0: Int, key1: Int, key2: Int, key3: Int) {
         wordSubs[0] = key0

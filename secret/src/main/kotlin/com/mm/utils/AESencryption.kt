@@ -111,7 +111,7 @@ private fun keyExpansion(key: Array<Int>): Array<Word> {
         if (i % NK_WORDS == 0) {
             words[i] = xor((words[i - 1])!!, (words[i - NK_WORDS])!!)
         } else {
-            words[i] = xor((RCON[i / NK_WORDS - 1])!!,
+            words[i] = xor((RCON[i / NK_WORDS - 1]),
                     xor((words[i - NK_WORDS])!!, subWord(rotWord((words[i - 1])!!))))
         }
     }
@@ -325,19 +325,19 @@ fun main(args: Array<String>) {
             0x28, 0xae, 0xd2, 0xa6,
             0xab, 0xf7, 0x15, 0x88,
             0x09, 0xcf, 0x4f, 0x3c)
-    println("明文： " + input)
+    println("明文： $input")
     input.forEach {
         print(it.toString() + " ")
     }
     println()
     val en = encrypt(input, cert)
-    println("密文: " + en)
+    println("密文: $en")
     en.forEach {
         print(it.toString() +  " ")
     }
     val output = decrypt(en, cert)
     println()
-    println("解密： " + output)
+    println("解密： $output")
     output.forEach {
         print(it.toString() +  " ")
     }

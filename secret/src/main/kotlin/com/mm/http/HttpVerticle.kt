@@ -6,12 +6,11 @@ import com.mm.entity.TokenInfo
 import com.mm.entity.UserInfo
 import com.mm.exception.AppRuntimeException
 import com.mm.utils.generateToken
-import com.paratera.gpauth.utils.queryWithParams
-import com.paratera.gpauth.utils.updateWithParams
+import com.mm.Extension.queryWithParams
+import com.mm.Extension.updateWithParams
 import io.vertx.core.http.HttpServer
 import io.vertx.core.logging.LoggerFactory
 import io.vertx.ext.asyncsql.PostgreSQLClient
-import io.vertx.ext.auth.jwt.JWTAuth
 import io.vertx.ext.mail.MailClient
 import io.vertx.ext.sql.SQLClient
 import io.vertx.ext.web.Router
@@ -23,9 +22,6 @@ import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.awaitResult
 import io.vertx.ext.mail.MailConfig
 import io.vertx.ext.mail.StartTLSOptions
-import io.vertx.kotlin.ext.auth.KeyStoreOptions
-import io.vertx.kotlin.ext.auth.jwt.JWTAuthOptions
-import io.vertx.kotlin.ext.auth.jwt.JWTOptions
 
 
 class HttpVerticle : CoroutineVerticle() {
