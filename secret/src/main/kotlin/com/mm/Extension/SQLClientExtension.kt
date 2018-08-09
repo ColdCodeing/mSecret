@@ -75,3 +75,21 @@ suspend fun SQLClient.updateWithParams(sql: String, args: JsonArray): UpdateResu
         }
     }
 }
+
+suspend fun SQLClient.updateWithParams(sql: String, vararg args: Any?): UpdateResult = suspendCoroutine { cont ->
+    val params = JsonArray()
+    args.forEach {
+        if (it != null) {
+            params.add(it)
+        } else {
+            params.addNull()
+        }
+    }
+    this.updateWithParams(sql, params) { conn ->
+        if (conn.succeeded()) {
+            cont.resume(conn.result())
+        } else {
+            cont.resumeWithException(conn.cause())
+        }
+    }
+}

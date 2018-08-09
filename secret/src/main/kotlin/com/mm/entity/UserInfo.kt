@@ -1,4 +1,4 @@
 package com.mm.entity
 
-data class UserInfo(val username: String, val sex: Int, val registType: Int, val registTime: Long,val email: String?,
-                    val phone: String?)
+data class UserInfo(val uuid: String = "", val email: String = "", val password: String = "", val sex: Int = 0,
+                    val registTime: Long = 0, val oldPassword: List<String> = ArrayList())

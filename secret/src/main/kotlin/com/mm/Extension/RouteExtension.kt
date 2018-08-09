@@ -1,11 +1,12 @@
 @file:Suppress("UNCHECKED_CAST")
 
-package com.mm.utils
+package com.mm.Extension
 
 import com.mm.Const.REQ_FORM_ERROR
 import com.mm.Const.REQ_PARAM_ERROR
 import com.mm.Const.REQ_PATH_PARAM_ERROR
 import com.mm.Const.SESSION_ERROR
+import com.mm.exception.AppRuntimeException
 import io.vertx.core.Vertx
 import io.vertx.core.json.Json
 import io.vertx.ext.web.Route
@@ -56,7 +57,7 @@ inline fun <reified T> RoutingContext.getPathParam(key: String, required: Boolea
 
 inline fun <reified T> RoutingContext.getFormParam(key: String, required: Boolean): T? {
     if (required) {
-        val value: String = this.request().getFormAttribute(key)
+        val value: String = this.request().formAttributes().get(key)
                 ?: throw AppRuntimeException("form param %s is empty".format(key), REQ_FORM_ERROR)
         return convert<T>(value)
     } else {
@@ -70,7 +71,7 @@ inline fun <reified T> RoutingContext.getFormParam(key: String, required: Boolea
 
 inline fun <reified T> RoutingContext.getHeader(key: String, required: Boolean): T? {
     if (required) {
-        val value: String = this.request().getHeader(key)
+        val value: String = this.request().headers().get(key)
                 ?: throw AppRuntimeException("header %s is empty".format(key), REQ_FORM_ERROR)
         return convert<T>(value)
     } else {

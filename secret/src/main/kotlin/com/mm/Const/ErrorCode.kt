@@ -1,6 +1,9 @@
 package com.mm.Const
 
-const val TOKEN_EXPIRED = 4001
+const val AUTH_FAIL = 4001
+const val TOKEN_EXPIRED = 4002
+const val TOKEN_GENERATE_ERROR = 4002
+
 
 const val UNKNOW_ERROR = 5000
 const val REQ_PARAM_ERROR = 5002

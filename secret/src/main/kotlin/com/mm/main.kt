@@ -2,7 +2,6 @@ package com.mm
 
 import com.mm.http.HttpVerticle
 import io.vertx.core.Vertx
-import scala.App
 
 fun main(args : Array<String>) {
     val vertx = Vertx.vertx()

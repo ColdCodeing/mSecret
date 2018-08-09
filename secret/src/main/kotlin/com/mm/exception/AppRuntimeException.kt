@@ -1,4 +1,4 @@
-package com.mm.utils
+package com.mm.exception
 
 class AppRuntimeException : RuntimeException {
     var code: Int = 0
