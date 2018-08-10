@@ -10,3 +10,13 @@ inline fun <reified T> ResultSet.getObject() : T? {
         null
     }
 }
+
+inline fun <reified T> ResultSet.getObjects() : List<T> {
+    val objs = ArrayList<T>()
+    if (this.results.isNotEmpty()) {
+        for (result in results) {
+            objs.add(Json.decodeValue(result.getString(0), T::class.java))
+        }
+    }
+    return objs
+}

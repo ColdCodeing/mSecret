@@ -17,7 +17,11 @@ import io.vertx.ext.web.sstore.LocalSessionStore
 import io.vertx.kotlin.coroutines.dispatcher
 import kotlinx.coroutines.experimental.launch
 
-inline fun <reified T> RoutingContext.getSessionVal(key: String, required: Boolean): T? {
+fun RoutingContext.putSesssionVal(key: String, value: Any) {
+    this.session().put(key, value)
+}
+
+fun <T> RoutingContext.getSessionVal(key: String, required: Boolean): T? {
     if (required) {
         val value: T = this.session().get<T>(key)
                 ?: throw AppRuntimeException("session %s is empty".format(key), SESSION_ERROR)

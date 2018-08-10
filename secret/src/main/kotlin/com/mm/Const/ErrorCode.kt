@@ -1,8 +1,10 @@
 package com.mm.Const
 
-const val AUTH_FAIL = 4001
-const val TOKEN_EXPIRED = 4002
-const val TOKEN_GENERATE_ERROR = 4002
+const val LOGIN_FAIL = 4001
+const val TOKEN_EXPIRED = 4003
+const val TOKEN_GENERATE_ERROR = 4004
+const val TOKEN_NON_EXIST = 4005
+const val REGIST_ERROR = 4006
 
 
 const val UNKNOW_ERROR = 5000

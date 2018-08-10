@@ -8,6 +8,7 @@ import com.mm.exception.AppRuntimeException
 import com.mm.utils.generateToken
 import com.mm.Extension.queryWithParams
 import com.mm.Extension.updateWithParams
+import com.mm.entity.SuccessResult
 import io.vertx.core.http.HttpServer
 import io.vertx.core.logging.LoggerFactory
 import io.vertx.ext.asyncsql.PostgreSQLClient
@@ -30,19 +31,18 @@ class HttpVerticle : CoroutineVerticle() {
     lateinit var mailClient: MailClient
 
     val dbAuth: suspend (RoutingContext) -> Unit = {
-        if (it.getSessionVal<UserInfo>(SESSION_KEY_USERINFO, false) == null) {
-            val mmToken = it.getHeader<String>("MMToken", false)
-            val tokenInfo = postgreSQLClient
-                    .queryWithParams(SQL_FIND_TOKEN_INFO_BY_MTOKEN, mmToken)
-                    .getObject<TokenInfo>()
-            if (tokenInfo == null || tokenInfo.expiryTime < System.currentTimeMillis()) {
-                throw AppRuntimeException("token already expired", TOKEN_EXPIRED)
-            } else {
-                val userInfo = postgreSQLClient
-                        .queryWithParams(SQL_FIND_USER_INFO_BY_UUID, tokenInfo.uuid)
-                        .getObject<UserInfo>()
-                it.put(SESSION_KEY_USERINFO, userInfo)
-            }
+        val mmToken = it.getHeader<String>(HEADER_KEY_MMTOKEN, true)!!
+        val tokenInfo = postgreSQLClient
+                .queryWithParams(SQL_FIND_TOKEN_INFO_BY_MTOKEN, mmToken)
+                .getObject<TokenInfo>()?: throw AppRuntimeException("token non-existent", TOKEN_NON_EXIST)
+        if (tokenInfo.expiryTime < System.currentTimeMillis() || tokenInfo.isInvalid) {
+            throw AppRuntimeException("token invalid", TOKEN_EXPIRED)
+        } else {
+            val userInfo = postgreSQLClient
+                    .queryWithParams(SQL_FIND_USER_INFO_BY_UUID, tokenInfo.uuid)
+                    .getObject<UserInfo>()?: Exception()
+            it.put(SESSION_KEY_USERINFO, userInfo)
+            it.put(SESSION_KEY_TOKEN, tokenInfo)
         }
     }
 
@@ -85,33 +85,43 @@ class HttpVerticle : CoroutineVerticle() {
         val router = Router.router(vertx).init(vertx)
         router.route().failureHandler(failHandler)
         router.post("/login").coroutineHandler{login(it)}
+        router.delete("/logout").coroutineHandler({ logout(it) }, { dbAuth(it) })
+        router.post("/regist").coroutineHandler({ registe(it) })
 
         awaitResult<HttpServer> { vertx.createHttpServer()
                 .requestHandler(router::accept)
                 .listen(config.getInteger("http.port", 8080), it)
         }
-
-
     }
 
     suspend fun login(ctx: RoutingContext) {
-        val email = ctx.getFormParam<String>(REQ_PARAM_KEY_EMAIL, true)
-        val password = ctx.getFormParam<String>(REQ_PARAM_KEY_PASSWORD, true)
-        val userInfo = postgreSQLClient.queryWithParams(SQL_FIND_USER_INFO_BY_EMAIL, email).getObject<UserInfo>()
-        userInfo?: throw AppRuntimeException("user %s is not exist".format(email), AUTH_FAIL)
-        if (userInfo.password != password) throw AppRuntimeException("password error", AUTH_FAIL)
-        val tokenInfo = TokenInfo(generateToken(), System.currentTimeMillis() + 60 * 60 * 1000, userInfo.uuid)
+        val email: String = ctx.getFormParam(REQ_PARAM_KEY_EMAIL, true)!!
+        val password: String = ctx.getFormParam(REQ_PARAM_KEY_PASSWORD, true)!!
+        val userInfo = postgreSQLClient.queryWithParams(SQL_FIND_USER_INFO_BY_EMAIL, email)
+                .getObject<UserInfo>()?:throw AppRuntimeException("user %s is not exist".format(email), LOGIN_FAIL)
+        if (userInfo.password != password) throw AppRuntimeException("password error", LOGIN_FAIL)
+        val tokenInfo = TokenInfo(generateToken(), System.currentTimeMillis() + 60 * 60 * 1000, userInfo.uuid, false)
         val saveResult = postgreSQLClient.updateWithParams(SQL_INSERT_TOKEN_INFO, tokenInfo.toJson()).isSuccessed()
         if (!saveResult) throw AppRuntimeException("generate token error, please try again", TOKEN_GENERATE_ERROR)
         ctx.responseJson(200, tokenInfo)
     }
 
     suspend fun logout(ctx: RoutingContext) {
-
+        val tokenInfo: TokenInfo = ctx.get(SESSION_KEY_TOKEN)
+        tokenInfo.isInvalid = true
+        postgreSQLClient.updateWithParams(SQL_UPDATE_TOKEN_BY_MTOKEN, tokenInfo.toJson(), tokenInfo.mtoken)
+        ctx.responseJson(200, SuccessResult("logout success", true))
     }
 
     suspend fun registe(ctx: RoutingContext) {
-
+        val email: String = ctx.getFormParam(REQ_PARAM_KEY_EMAIL, true)!!
+        val pass: String = ctx.getFormParam(REQ_PARAM_KEY_PASSWORD, true)!!
+        val sex: Int = ctx.getFormParam(REQ_PARAM_KEY_SEX, true)!!
+        val uuid = postgreSQLClient.query(SQL_GET_LAST_UUID).results.get(0).getLong(0)
+        val userInfo = UserInfo(uuid, email, pass, false, sex, System.currentTimeMillis(), ArrayList())
+        val saveResult = postgreSQLClient.updateWithParams(SQL_INSERT_USER_INFO, userInfo.toJson()).isSuccessed()
+        if (!saveResult) throw AppRuntimeException("save user error, please try again", REGIST_ERROR)
+        ctx.responseJson(200, SuccessResult("regist success", true, userInfo))
     }
 
 }
