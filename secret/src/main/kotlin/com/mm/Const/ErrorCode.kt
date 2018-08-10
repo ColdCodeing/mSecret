@@ -8,6 +8,7 @@ const val REGIST_ERROR = 4006
 
 
 const val UNKNOW_ERROR = 5000
+const val DATABASE_ERROR = 5001
 const val REQ_PARAM_ERROR = 5002
 const val REQ_PATH_PARAM_ERROR = 5004
 const val REQ_FORM_ERROR = 5007

@@ -1,5 +1,6 @@
 package com.mm.http
 
+import com.github.mauricio.async.db.exceptions.DatabaseException
 import com.mm.Const.*
 import com.mm.Extension.*
 import com.mm.entity.TokenInfo
@@ -52,10 +53,15 @@ class HttpVerticle : CoroutineVerticle() {
             LOGGER.error(throwable.message, throwable)
             if (throwable is AppRuntimeException) {
                 it.responseJson(500, JsonObject().put("code", throwable.code).put("msg", throwable.message))
+            } else if (throwable is DatabaseException) {
+                it.responseJson(500, JsonObject(Pair("code", DATABASE_ERROR),
+                        Pair("stack trace", throwable.stackTrace)))
+            } else {
+                it.responseJson(500, JsonObject(Pair("msg", throwable.stackTrace)))
             }
         } else {
             LOGGER.error("UNKNOW EXCEPTION WHERE DOING", it.data().toString())
-            it.responseJson(500, JsonObject().put("code", UNKNOW_ERROR).put("msg", "unknow exception"))
+            it.responseJson(500, JsonObject().put("code", UNKNOW_ERROR).put("msg", "no abnormality was captured"))
         }
     }
 
@@ -117,7 +123,7 @@ class HttpVerticle : CoroutineVerticle() {
         val email: String = ctx.getFormParam(REQ_PARAM_KEY_EMAIL, true)!!
         val pass: String = ctx.getFormParam(REQ_PARAM_KEY_PASSWORD, true)!!
         val sex: Int = ctx.getFormParam(REQ_PARAM_KEY_SEX, true)!!
-        val uuid = postgreSQLClient.query(SQL_GET_LAST_UUID).results.get(0).getLong(0)
+        val uuid = postgreSQLClient.query(SQL_GET_LAST_UUID).results.get(0).getLong(0) + 1
         val userInfo = UserInfo(uuid, email, pass, false, sex, System.currentTimeMillis(), ArrayList())
         val saveResult = postgreSQLClient.updateWithParams(SQL_INSERT_USER_INFO, userInfo.toJson()).isSuccessed()
         if (!saveResult) throw AppRuntimeException("save user error, please try again", REGIST_ERROR)
