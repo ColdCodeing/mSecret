@@ -134,7 +134,7 @@ fun RoutingContext.responseJson(statusCode: Int, obj: Any) {
     if (obj is String) {
         this.response().end(obj)
     } else {
-        this.response().end(Json.encode(obj))
+        this.response().end(obj.toJson())
     }
 }
 
