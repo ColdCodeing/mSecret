@@ -2,13 +2,9 @@
 
 package com.mm.Extension
 
-import com.mm.Const.REQ_FORM_ERROR
-import com.mm.Const.REQ_PARAM_ERROR
-import com.mm.Const.REQ_PATH_PARAM_ERROR
-import com.mm.Const.SESSION_ERROR
+import com.mm.Const.*
 import com.mm.exception.AppRuntimeException
 import io.vertx.core.Vertx
-import io.vertx.core.json.Json
 import io.vertx.ext.web.Route
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
@@ -89,34 +85,38 @@ inline fun <reified T> RoutingContext.getHeader(key: String, required: Boolean):
 
 
 inline fun <reified T> convert(value: String): T {
-    when (T::class) {
-        Int::class -> {
-            return value.toInt() as T
+    try {
+        when (T::class) {
+            Int::class -> {
+                return value.toInt() as T
+            }
+            Long::class -> {
+                return value.toLong() as T
+            }
+            Boolean::class -> {
+                return value.toBoolean() as T
+            }
+            Double::class -> {
+                return value.toDouble() as T
+            }
+            Float::class -> {
+                return value.toFloat() as T
+            }
+            String::class -> {
+                return value as T
+            }
+            Short::class -> {
+                return value.toShort() as T
+            }
+            Character::class -> {
+                return value[0] as T
+            }
+            else -> {
+                return value as T
+            }
         }
-        Long::class -> {
-            return value.toLong() as T
-        }
-        Boolean::class -> {
-            return value.toBoolean() as T
-        }
-        Double::class -> {
-            return value.toDouble() as T
-        }
-        Float::class -> {
-            return value.toFloat() as T
-        }
-        String::class -> {
-            return value as T
-        }
-        Short::class -> {
-            return value.toShort() as T
-        }
-        Character::class -> {
-            return value[0] as T
-        }
-        else -> {
-            return value as T
-        }
+    } catch (e : Exception) {
+        throw AppRuntimeException("$value can not convert to " + T::class.java.toString(), DATA_CONVERT_ERROR)
     }
 }
 
@@ -138,25 +138,13 @@ fun RoutingContext.responseJson(statusCode: Int, obj: Any) {
     }
 }
 
-fun Route.coroutineHandler(handle: suspend (RoutingContext) -> Unit,
-                           authHandle: suspend (RoutingContext) -> Unit) {
+fun Route.coroutineHandler(vararg handles: suspend (RoutingContext) -> Unit) {
     handler { ctx ->
         launch(ctx.vertx().dispatcher()) {
             try {
-                authHandle(ctx)
-                handle(ctx)
-            } catch (e: Throwable) {
-                ctx.fail(e)
-            }
-        }
-    }
-}
-
-fun Route.coroutineHandler(handle: suspend (RoutingContext) -> Unit) {
-    handler { ctx ->
-        launch(ctx.vertx().dispatcher()) {
-            try {
-                handle(ctx)
+                handles.forEach {
+                    it(ctx)
+                }
             } catch(e: Exception) {
                 ctx.fail(e)
             }

@@ -1,6 +1,7 @@
 package com.mm.http
 
 import com.github.mauricio.async.db.exceptions.DatabaseException
+import com.github.mauricio.async.db.postgresql.exceptions.GenericDatabaseException
 import com.mm.Const.*
 import com.mm.Extension.*
 import com.mm.entity.TokenInfo
@@ -11,6 +12,7 @@ import com.mm.Extension.queryWithParams
 import com.mm.Extension.updateWithParams
 import com.mm.entity.SuccessResult
 import com.mm.utils.generateActiveCode
+import com.mm.utils.generateUserId
 import io.vertx.core.http.HttpServer
 import io.vertx.core.logging.LoggerFactory
 import io.vertx.ext.asyncsql.PostgreSQLClient
@@ -33,75 +35,41 @@ class HttpVerticle : CoroutineVerticle() {
     lateinit var postgreSQLClient: SQLClient
     lateinit var mailClient: MailClient
 
-    val dbAuth: suspend (RoutingContext) -> Unit = {
-        val mmToken = it.getHeader<String>(HEADER_KEY_MMTOKEN, true)!!
+    suspend fun userInfoHandler(ctx: RoutingContext){
+        val tokenInfo: TokenInfo = ctx.getSessionVal(SESSION_KEY_TOKEN, true)!!
+        val userInfo = postgreSQLClient
+                .queryWithParams(SQL_FIND_USER_INFO_BY_UUID, tokenInfo.uuid)
+                .getObject<UserInfo>()?: throw Exception()
+        ctx.put(SESSION_KEY_USERINFO, userInfo)
+    }
+
+    suspend fun authHandler(ctx: RoutingContext) {
+        val mmToken = ctx.getHeader<String>(HEADER_KEY_MMTOKEN, true)!!
         val tokenInfo = postgreSQLClient
                 .queryWithParams(SQL_FIND_TOKEN_INFO_BY_MTOKEN, mmToken)
                 .getObject<TokenInfo>()?: throw AppRuntimeException("token non-existent", TOKEN_NON_EXIST)
         if (tokenInfo.expiryTime < System.currentTimeMillis() || tokenInfo.isInvalid) {
             throw AppRuntimeException("token invalid", TOKEN_EXPIRED)
         } else {
-            val userInfo = postgreSQLClient
-                    .queryWithParams(SQL_FIND_USER_INFO_BY_UUID, tokenInfo.uuid)
-                    .getObject<UserInfo>()?: throw Exception()
-            it.put(SESSION_KEY_USERINFO, userInfo)
-            it.put(SESSION_KEY_TOKEN, tokenInfo)
+            ctx.put(SESSION_KEY_TOKEN, tokenInfo)
         }
     }
 
-    val failHandler: (RoutingContext) -> Unit = {
-        val throwable = it.failure()
+    fun failHandler(ctx: RoutingContext){
+        val throwable = ctx.failure()
         if (throwable != null) {
             LOGGER.error(throwable.message, throwable)
             if (throwable is AppRuntimeException) {
-                it.responseJson(500, JsonObject().put("code", throwable.code).put("msg", throwable.message))
+                ctx.responseJson(500, JsonObject().put("code", throwable.code).put("msg", throwable.message))
             } else if (throwable is DatabaseException) {
-                it.responseJson(500, JsonObject(Pair("code", DATABASE_ERROR),
+                ctx.responseJson(500, JsonObject(Pair("code", DATABASE_ERROR),
                         Pair("stack trace", throwable.message)))
             } else {
-                it.responseJson(500, JsonObject(Pair("code", UNKNOW_ERROR),Pair("msg", throwable.message)))
+                ctx.responseJson(500, JsonObject(Pair("code", UNKNOW_ERROR),Pair("msg", throwable.message)))
             }
         } else {
-            LOGGER.error("UNKNOW EXCEPTION WHERE DOING", it.data().toString())
-            it.responseJson(500, JsonObject().put("code", UNKNOW_ERROR).put("msg", "no abnormality was captured"))
-        }
-    }
-
-    override suspend fun start() {
-        val postgreSQLClientConfig = json {
-            obj(
-                    "host" to "localhost",
-                    "port" to 5432,
-                    "maxPoolSize" to 30,
-                    "username" to "mm",
-                    "password" to "111111",
-                    "database" to "mmdata",
-                    "queryTimeout" to 30000
-            )
-        }
-        val dbconfig = config.getJsonObject("db.config", postgreSQLClientConfig)
-        postgreSQLClient = PostgreSQLClient.createShared(vertx, dbconfig)
-
-        val mailConfig = MailConfig()
-        mailConfig.hostname = "smtp.qq.com"
-        mailConfig.port = 465
-        mailConfig.isSsl  =true
-        mailConfig.starttls = StartTLSOptions.REQUIRED
-        mailConfig.username = "1035298618@qq.com"
-        mailConfig.password = MAIL_AUTH_CODE
-        mailClient = MailClient.createNonShared(vertx, mailConfig)
-
-        val router = Router.router(vertx).init(vertx)
-        router.route().failureHandler(failHandler)
-        router.post("/login").coroutineHandler{login(it)}
-        router.delete("/logout").coroutineHandler({ logout(it) }, { dbAuth(it) })
-        router.post("/regist").coroutineHandler({ registe(it) })
-        router.get("/active").coroutineHandler({ active(it) })
-        router.get("/mail").coroutineHandler({ sendActivateMail(it) }, { dbAuth(it)})
-
-        awaitResult<HttpServer> { vertx.createHttpServer()
-                .requestHandler(router::accept)
-                .listen(config.getInteger("http.port", 8080), it)
+            LOGGER.error("UNKNOW EXCEPTION WHERE DOING", ctx.data().toString())
+            ctx.responseJson(500, JsonObject().put("code", UNKNOW_ERROR).put("msg", "no abnormality was captured"))
         }
     }
 
@@ -128,15 +96,18 @@ class HttpVerticle : CoroutineVerticle() {
         val email: String = ctx.getFormParam(REQ_PARAM_KEY_EMAIL, true)!!
         val pass: String = ctx.getFormParam(REQ_PARAM_KEY_PASSWORD, true)!!
         val sex: Int = ctx.getFormParam(REQ_PARAM_KEY_SEX, true)!!
-        val uuid = postgreSQLClient.query(SQL_GET_LAST_UUID).results.get(0).getLong(0) + 1
-        val userInfo = UserInfo(uuid, email, pass, false, sex, System.currentTimeMillis(), ArrayList())
+        if (!email.isEmail()) throw AppRuntimeException("email validation error", REQ_PARAM_ERROR)
+        if (postgreSQLClient.queryWithParams(SQL_FIND_USER_INFO_BY_EMAIL, email).getObject<UserInfo>() != null) {
+            throw AppRuntimeException("email already be used", REGIST_ERROR)
+        }
+        val userInfo = UserInfo(generateUserId(), email, pass, false, sex, System.currentTimeMillis(), ArrayList())
         val saveResult = postgreSQLClient.updateWithParams(SQL_INSERT_USER_INFO, userInfo.toJson()).isSuccessed()
         if (!saveResult) throw AppRuntimeException("save user error, please try again", REGIST_ERROR)
         ctx.responseJson(200, SuccessResult("regist success", true, userInfo))
     }
 
     suspend fun active(ctx: RoutingContext) {
-        val uuid: Long = ctx.getReqParam(REQ_PARAM_KEY_UUID, true)!!
+        val uuid: String = ctx.getReqParam(REQ_PARAM_KEY_UUID, true)!!
         val email: String = ctx.getReqParam(REQ_PARAM_KEY_EMAIL, true)!!
         val activateCode: String = ctx.getReqParam(REQ_PARAM_KEY_AVTIVATE_CODE, true)!!
 
@@ -174,6 +145,49 @@ class HttpVerticle : CoroutineVerticle() {
             mailClient.sendMail(message, it)
         }
         ctx.responseJson(200, SuccessResult("send success", true, mailResult.toJson()))
+    }
+
+    override suspend fun start() {
+        val postgreSQLClientConfig = json {
+            obj(
+                    "host" to "localhost",
+                    "port" to 5432,
+                    "maxPoolSize" to 30,
+                    "username" to "mm",
+                    "password" to "111111",
+                    "database" to "mmdata",
+                    "queryTimeout" to 30000
+            )
+        }
+        val dbconfig = config.getJsonObject("db.config", postgreSQLClientConfig)
+        postgreSQLClient = PostgreSQLClient.createShared(vertx, dbconfig)
+
+        val mailConfig = MailConfig()
+        mailConfig.hostname = "smtp.qq.com"
+        mailConfig.port = 465
+        mailConfig.isSsl  =true
+        mailConfig.starttls = StartTLSOptions.REQUIRED
+        mailConfig.username = "1035298618@qq.com"
+        mailConfig.password = MAIL_AUTH_CODE
+        mailClient = MailClient.createNonShared(vertx, mailConfig)
+
+        val router = Router.router(vertx).init(vertx)
+        router.route().failureHandler({failHandler(it)})
+        router.post("/login")
+                .coroutineHandler({login(it)})
+        router.delete("/logout")
+                .coroutineHandler({authHandler(it)}, {userInfoHandler(it)},  {logout(it)})
+        router.post("/regist")
+                .coroutineHandler({registe(it)})
+        router.get("/active")
+                .coroutineHandler({active(it)})
+        router.get("/mail")
+                .coroutineHandler({authHandler(it)}, {userInfoHandler(it)}, {sendActivateMail(it)})
+
+        awaitResult<HttpServer> { vertx.createHttpServer()
+                .requestHandler(router::accept)
+                .listen(config.getInteger("http.port", 8080), it)
+        }
     }
 }
 
