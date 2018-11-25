@@ -1,5 +1,6 @@
 package com.mm.http
 
+import com.alibaba.fastjson.JSON
 import com.github.mauricio.async.db.exceptions.DatabaseException
 import com.github.mauricio.async.db.postgresql.exceptions.GenericDatabaseException
 import com.mm.Const.*
@@ -11,9 +12,11 @@ import com.mm.utils.generateToken
 import com.mm.Extension.queryWithParams
 import com.mm.Extension.updateWithParams
 import com.mm.entity.SuccessResult
+import com.mm.entity.UserPass
 import com.mm.utils.generateActiveCode
 import com.mm.utils.generateUserId
 import io.vertx.core.http.HttpServer
+import io.vertx.core.json.JsonObject
 import io.vertx.core.logging.LoggerFactory
 import io.vertx.ext.asyncsql.PostgreSQLClient
 import io.vertx.ext.mail.MailClient
@@ -22,13 +25,13 @@ import io.vertx.ext.mail.StartTLSOptions
 import io.vertx.ext.sql.SQLClient
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
-import io.vertx.kotlin.core.json.JsonObject
 import io.vertx.kotlin.core.json.json
 import io.vertx.kotlin.core.json.obj
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.awaitResult
 import io.vertx.kotlin.ext.mail.MailConfig
 import io.vertx.kotlin.ext.mail.MailMessage
+import java.util.stream.Collectors
 
 class HttpVerticle : CoroutineVerticle() {
     val LOGGER = LoggerFactory.getLogger(HttpVerticle::class.java)
@@ -36,40 +39,29 @@ class HttpVerticle : CoroutineVerticle() {
     lateinit var mailClient: MailClient
 
     suspend fun userInfoHandler(ctx: RoutingContext){
-        val tokenInfo: TokenInfo = ctx.getSessionVal(SESSION_KEY_TOKEN, true)!!
-        val userInfo = postgreSQLClient
-                .queryWithParams(SQL_FIND_USER_INFO_BY_UUID, tokenInfo.uuid)
-                .getObject<UserInfo>()?: throw Exception()
-        ctx.put(SESSION_KEY_USERINFO, userInfo)
-    }
-
-    suspend fun authHandler(ctx: RoutingContext) {
-        val mmToken = ctx.getHeader<String>(HEADER_KEY_MMTOKEN, true)!!
-        val tokenInfo = postgreSQLClient
-                .queryWithParams(SQL_FIND_TOKEN_INFO_BY_MTOKEN, mmToken)
-                .getObject<TokenInfo>()?: throw AppRuntimeException("token non-existent", TOKEN_NON_EXIST)
-        if (tokenInfo.expiryTime < System.currentTimeMillis() || tokenInfo.isInvalid) {
-            throw AppRuntimeException("token invalid", TOKEN_EXPIRED)
-        } else {
-            ctx.put(SESSION_KEY_TOKEN, tokenInfo)
+        //session
+        if (ctx.get<UserInfo>(SESSION_KEY_USERINFO) == null) {
+            val tokenInfo: TokenInfo = ctx.getSessionVal(SESSION_KEY_TOKEN, true)!!
+            val userInfo = postgreSQLClient
+                    .queryWithParams(SQL_FIND_USER_INFO_BY_UUID, tokenInfo.uuid)
+                    .getJsonObject<UserInfo>() ?: throw Exception()
+            ctx.put(SESSION_KEY_USERINFO, userInfo)
         }
     }
 
-    fun failHandler(ctx: RoutingContext){
-        val throwable = ctx.failure()
-        if (throwable != null) {
-            LOGGER.error(throwable.message, throwable)
-            if (throwable is AppRuntimeException) {
-                ctx.responseJson(500, JsonObject().put("code", throwable.code).put("msg", throwable.message))
-            } else if (throwable is DatabaseException) {
-                ctx.responseJson(500, JsonObject(Pair("code", DATABASE_ERROR),
-                        Pair("stack trace", throwable.message)))
+    suspend fun authHandler(ctx: RoutingContext) {
+        //session
+        if (ctx.get<TokenInfo>(SESSION_KEY_TOKEN) == null) {
+            val mmToken = ctx.getHeader<String>(HEADER_KEY_MTOKEN, true)!!
+            //TODO need redis
+            val tokenInfo = postgreSQLClient
+                    .queryWithParams(SQL_FIND_TOKEN_INFO_BY_MTOKEN, mmToken)
+                    .getJsonObject<TokenInfo>() ?: throw AppRuntimeException("token non-existent", TOKEN_NON_EXIST)
+            if (tokenInfo.expiryTime < System.currentTimeMillis() || tokenInfo.invalid) {
+                throw AppRuntimeException("token invalid", TOKEN_EXPIRED)
             } else {
-                ctx.responseJson(500, JsonObject(Pair("code", UNKNOW_ERROR),Pair("msg", throwable.message)))
+                ctx.put(SESSION_KEY_TOKEN, tokenInfo)
             }
-        } else {
-            LOGGER.error("UNKNOW EXCEPTION WHERE DOING", ctx.data().toString())
-            ctx.responseJson(500, JsonObject().put("code", UNKNOW_ERROR).put("msg", "no abnormality was captured"))
         }
     }
 
@@ -77,18 +69,18 @@ class HttpVerticle : CoroutineVerticle() {
         val email: String = ctx.getFormParam(REQ_PARAM_KEY_EMAIL, true)!!
         val password: String = ctx.getFormParam(REQ_PARAM_KEY_PASSWORD, true)!!
         val userInfo = postgreSQLClient.queryWithParams(SQL_FIND_USER_INFO_BY_EMAIL, email)
-                .getObject<UserInfo>()?:throw AppRuntimeException("user %s is not exist".format(email), LOGIN_FAIL)
+                .getJsonObject<UserInfo>()?:throw AppRuntimeException("user %s is not exist".format(email), LOGIN_FAIL)
         if (userInfo.password != password) throw AppRuntimeException("password error", LOGIN_FAIL)
         val tokenInfo = TokenInfo(generateToken(), System.currentTimeMillis() + 60 * 60 * 1000, userInfo.uuid, false)
-        val saveResult = postgreSQLClient.updateWithParams(SQL_INSERT_TOKEN_INFO, tokenInfo.toJson()).isSuccessed()
+        val saveResult = postgreSQLClient.updateWithParams(SQL_INSERT_TOKEN_INFO, JSON.toJSONString(tokenInfo)).isSuccessed()
         if (!saveResult) throw AppRuntimeException("generate token error, please try again", TOKEN_GENERATE_ERROR)
         ctx.responseJson(200, tokenInfo)
     }
 
     suspend fun logout(ctx: RoutingContext) {
         val tokenInfo: TokenInfo = ctx.get(SESSION_KEY_TOKEN)
-        tokenInfo.isInvalid = true
-        postgreSQLClient.updateWithParams(SQL_UPDATE_TOKEN_BY_MTOKEN, tokenInfo.toJson(), tokenInfo.mtoken)
+        tokenInfo.invalid = true
+        postgreSQLClient.updateWithParams(SQL_UPDATE_TOKEN_BY_MTOKEN, JSON.toJSONString(tokenInfo), tokenInfo.mtoken)
         ctx.responseJson(200, SuccessResult("logout success", true))
     }
 
@@ -97,11 +89,11 @@ class HttpVerticle : CoroutineVerticle() {
         val pass: String = ctx.getFormParam(REQ_PARAM_KEY_PASSWORD, true)!!
         val sex: Int = ctx.getFormParam(REQ_PARAM_KEY_SEX, true)!!
         if (!email.isEmail()) throw AppRuntimeException("email validation error", REQ_PARAM_ERROR)
-        if (postgreSQLClient.queryWithParams(SQL_FIND_USER_INFO_BY_EMAIL, email).getObject<UserInfo>() != null) {
+        if (postgreSQLClient.queryWithParams(SQL_FIND_USER_INFO_BY_EMAIL, email).getJsonObject<UserInfo>() != null) {
             throw AppRuntimeException("email already be used", REGIST_ERROR)
         }
         val userInfo = UserInfo(generateUserId(), email, pass, false, sex, System.currentTimeMillis(), ArrayList())
-        val saveResult = postgreSQLClient.updateWithParams(SQL_INSERT_USER_INFO, userInfo.toJson()).isSuccessed()
+        val saveResult = postgreSQLClient.updateWithParams(SQL_INSERT_USER_INFO, JSON.toJSONString(userInfo)).isSuccessed()
         if (!saveResult) throw AppRuntimeException("save user error, please try again", REGIST_ERROR)
         ctx.responseJson(200, SuccessResult("regist success", true, userInfo))
     }
@@ -117,10 +109,10 @@ class HttpVerticle : CoroutineVerticle() {
         if (activateCode == code) {
             val userInfo = postgreSQLClient
                     .queryWithParams(SQL_FIND_USER_INFO_BY_UUID, uuid)
-                    .getObject<UserInfo>()?: throw Exception()
+                    .getJsonObject<UserInfo>()?: throw Exception()
             userInfo.active = true
             val saveBoolean = postgreSQLClient
-                    .updateWithParams(SQL_UPDATE_USER_BY_EMAIL, userInfo.toJson(), email, uuid).isSuccessed()
+                    .updateWithParams(SQL_UPDATE_USER_BY_EMAIL, JSON.toJSONString(userInfo), email, uuid).isSuccessed()
             if (!saveBoolean) throw AppRuntimeException("update user error. please try again", ACTIVATE_ERROR)
             ctx.responseJson(200, SuccessResult("activate success", true))
         } else {
@@ -135,7 +127,7 @@ class HttpVerticle : CoroutineVerticle() {
         val saveBoolean = postgreSQLClient
                 .updateWithParams(SQL_INSET_ACTIVATE, code, userInfo.email, userInfo.uuid, code).isSuccessed()
         if (!saveBoolean) throw AppRuntimeException("update activate error. please try again", SEND_EMAIL_ERROR)
-        var message = MailMessage()
+        val message = MailMessage()
         message.from = "1035298618@qq.com"
         message.to = arrayListOf("1035298618@qq.com")
         message.text = "mSecret service activate"
@@ -172,22 +164,70 @@ class HttpVerticle : CoroutineVerticle() {
         mailClient = MailClient.createNonShared(vertx, mailConfig)
 
         val router = Router.router(vertx).init(vertx)
+        val subRouter = Router.router(vertx)
         router.route().failureHandler({failHandler(it)})
-        router.post("/login")
+        subRouter.post("/login")
                 .coroutineHandler({login(it)})
-        router.delete("/logout")
+        subRouter.delete("/logout")
                 .coroutineHandler({authHandler(it)}, {userInfoHandler(it)},  {logout(it)})
-        router.post("/regist")
+        subRouter.post("/regist")
                 .coroutineHandler({registe(it)})
-        router.get("/active")
+        subRouter.get("/active")
                 .coroutineHandler({active(it)})
-        router.get("/mail")
+        subRouter.get("/mail")
                 .coroutineHandler({authHandler(it)}, {userInfoHandler(it)}, {sendActivateMail(it)})
+        //前处理
+        val upassRouter = Router.router(vertx)
+        upassRouter.route().coroutineBeforeHandler({authHandler(it)}, true)
+        upassRouter.post("/upass")
+                .coroutineHandler({saveUserPass(it)})
+        upassRouter.delete("/upass")
+                .coroutineHandler({deleteUserPass(it)})
+        upassRouter.put("/upass")
+                .coroutineHandler({updateUserPass(it)})
+        upassRouter.get("/upasses")
+                .coroutineHandler({getUserPasses(it)})
+        subRouter.mountSubRouter("/", upassRouter)
 
+        router.mountSubRouter("/api/v1", subRouter)
         awaitResult<HttpServer> { vertx.createHttpServer()
                 .requestHandler(router::accept)
                 .listen(config.getInteger("http.port", 8080), it)
         }
+    }
+
+    suspend fun saveUserPass(ctx: RoutingContext) {
+        val uuid = ctx.get<TokenInfo>(SESSION_KEY_TOKEN).uuid
+        val data = ctx.bodyAsJson?: throw throw AppRuntimeException("body not contain json data", REQ_BODY_ERROR)
+        val updateResult = postgreSQLClient.updateWithParams(SQL_INSERT_USER_PASS, uuid, data.toString()).isSuccessed()
+        ctx.responseJson(200, SuccessResult("save success", updateResult))
+    }
+
+    suspend fun deleteUserPass(ctx: RoutingContext) {
+        val uid = ctx.getFormParam<Int>(REQ_PARAM_KEY_USERPASS_ID, true)
+        val updateResult = postgreSQLClient.updateWithParams(SQL_DELETE_USER_PASS_BY_UID, uid).isSuccessed()
+        ctx.responseJson(200, SuccessResult("delete success", updateResult))
+    }
+
+    suspend fun updateUserPass(ctx: RoutingContext) {
+        val uid = ctx.getFormParam<Int>(REQ_PARAM_KEY_USERPASS_ID, true)
+        val data = ctx.bodyAsJson?: throw throw AppRuntimeException("body not contain json data", REQ_BODY_ERROR)
+        val updateResult = postgreSQLClient.updateWithParams(SQL_UPDATE_USER_PASS_BY_UID, data.toString(), uid).isSuccessed()
+        ctx.responseJson(200, SuccessResult("update success", updateResult))
+    }
+
+    suspend fun getUserPasses(ctx: RoutingContext) {
+        val uuid = ctx.get<TokenInfo>(SESSION_KEY_TOKEN).uuid
+        val result = postgreSQLClient.queryWithParams(SQL_FIND_USER_PASS_BY_UUID, uuid)
+                .results
+                .stream()
+                .map {
+                    UserPass(it.getInteger(0),
+                            it.getString(1),
+                            it.getLong(2),
+                            JsonObject(it.getString(3)))
+                }.collect(Collectors.toList())
+        ctx.responseJson(200, result)
     }
 }
 

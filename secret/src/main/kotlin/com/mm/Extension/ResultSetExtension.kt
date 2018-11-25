@@ -5,7 +5,7 @@ import io.vertx.ext.sql.ResultSet
 import io.vertx.kotlin.core.json.get
 import java.text.FieldPosition
 
-inline fun <reified T> ResultSet.getObject() : T? {
+inline fun <reified T> ResultSet.getJsonObject() : T? {
     return if (this.results.isNotEmpty()) {
         this.results[0].getString(0).fromJson()
     } else {
@@ -13,7 +13,7 @@ inline fun <reified T> ResultSet.getObject() : T? {
     }
 }
 
-inline fun <reified T> ResultSet.getObjects() : List<T> {
+inline fun <reified T> ResultSet.getJsonObjects() : List<T> {
     val objs = ArrayList<T>()
     if (this.results.isNotEmpty()) {
         for (result in results) {

@@ -11,6 +11,7 @@ import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.*
 import io.vertx.ext.web.sstore.LocalSessionStore
 import io.vertx.kotlin.coroutines.dispatcher
+import javafx.application.Application.launch
 import kotlinx.coroutines.experimental.launch
 
 fun RoutingContext.putSesssionVal(key: String, value: Any) {
@@ -33,11 +34,8 @@ inline fun <reified T> RoutingContext.getReqParam(key: String, required: Boolean
                 ?: throw AppRuntimeException("request param %s is empty".format(key), REQ_PARAM_ERROR)
         return convert<T>(value)
     } else {
-        val value = this.request().getParam(key)
-        if (value != null) {
-            return convert<T>(value)
-        }
-        return value
+        val value:String = this.request().getParam(key)?: return null
+        return convert<T>(value)
     }
 }
 
@@ -47,11 +45,8 @@ inline fun <reified T> RoutingContext.getPathParam(key: String, required: Boolea
                 ?: throw AppRuntimeException("path param %s is empty".format(key), REQ_PATH_PARAM_ERROR)
         return convert<T>(value)
     } else {
-        val value: String = this.pathParam(key)
-        if (value != null) {
-            return convert<T>(value)
-        }
-        return value
+        val value: String = this.pathParam(key)?: return null
+        return convert<T>(value)
     }
 }
 
@@ -61,11 +56,8 @@ inline fun <reified T> RoutingContext.getFormParam(key: String, required: Boolea
                 ?: throw AppRuntimeException("form param %s is empty".format(key), REQ_FORM_ERROR)
         return convert<T>(value)
     } else {
-        val value: String = this.request().getFormAttribute(key)
-        if (value != null) {
-            return convert<T>(value)
-        }
-        return value
+        val value: String = this.request().getFormAttribute(key)?: return null
+        return convert<T>(value)
     }
 }
 
@@ -75,11 +67,8 @@ inline fun <reified T> RoutingContext.getHeader(key: String, required: Boolean):
                 ?: throw AppRuntimeException("header %s is empty".format(key), REQ_FORM_ERROR)
         return convert<T>(value)
     } else {
-        val value: String = this.request().getHeader(key)
-        if (value != null) {
-            return convert<T>(value)
-        }
-        return value
+        val value: String = this.request().getHeader(key)?: return null
+        return convert<T>(value)
     }
 }
 
@@ -134,11 +123,12 @@ fun RoutingContext.responseJson(statusCode: Int, obj: Any) {
     if (obj is String) {
         this.response().end(obj)
     } else {
-        this.response().end(obj.toJson())
+        val jsonStr = obj.toJson()
+        this.response().end(jsonStr)
     }
 }
 
-fun Route.coroutineHandler(vararg handles: suspend (RoutingContext) -> Unit) {
+fun Route.coroutineHandler(vararg handles: suspend (RoutingContext) -> Unit) : Route{
     handler { ctx ->
         launch(ctx.vertx().dispatcher()) {
             try {
@@ -150,4 +140,21 @@ fun Route.coroutineHandler(vararg handles: suspend (RoutingContext) -> Unit) {
             }
         }
     }
+    return this
+}
+
+fun Route.coroutineBeforeHandler(handle : suspend (RoutingContext) -> Unit, next: Boolean) : Route {
+    handler { ctx ->
+        launch(ctx.vertx().dispatcher()) {
+            try {
+                handle(ctx)
+                if (next) {
+                    ctx.next()
+                }
+            } catch(e: Exception) {
+                ctx.fail(e)
+            }
+        }
+    }
+    return this
 }
