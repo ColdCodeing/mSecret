@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#03497D</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+    <color name="colorFloatingActionButton">#008CEE</color>
+    <color name="colorSplashBackground">#0E80C6</color>
+    <color name="colorLogin">#0980C3</color>
+    <color name="colorLoginButton">#004684</color>
+    <color name="colorCursor">#cccccc</color>
+    <color name="logoScreenBackground">#F7F7F7</color>
+    <color name="baseBackGroundColor">#F7F7F7</color>
+    <color name="titleBackGroundColor">#ffffff</color>
+    <color name="blackTextColor">#000</color>
+    <color name="grayTextColor">#666666</color>
+    <color name="whiteTextColor">#FFF</color>
+
+    <drawable name="checkbox">#666666</drawable>
+    <drawable name="camera_back_press">#1b1b1b</drawable>
+    <drawable name="camera_back_default">#2f2f2f</drawable>
+    <color name="list_item_text_color">#fff</color>
+    <color name="colorGray">#bfbfbf</color>
+</resources>

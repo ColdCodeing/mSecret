@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                xmlns:app="http://schemas.android.com/apk/res-auto"
+                xmlns:tools="http://schemas.android.com/tools"
+                android:id="@+id/activityRegist"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/baseBackGroundColor">
+
+    <ImageView
+            android:id="@+id/imageViewIcon"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="40dp"
+            android:scaleType="centerCrop"
+            android:src="@mipmap/ic_launcher"/>
+
+    <TextView
+            android:id="@+id/textViewTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:layout_below="@+id/imageViewIcon"
+            android:layout_marginTop="10dp"
+            android:text="mSecret"
+            android:textColor="@color/blackTextColor"
+            android:textSize="23sp"
+            android:typeface="monospace"/>
+
+    <RelativeLayout
+            android:id="@+id/registRlUsername"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/textViewTitle"
+            android:layout_marginTop="30dp"
+            android:background="@drawable/rectangle_edittext">
+
+        <ImageView
+                android:id="@+id/registImageViewIconUsername"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:paddingBottom="15dp"
+                android:paddingLeft="30dp"
+                android:paddingTop="15dp"
+                android:src="@mipmap/ic_edittextuname"/>
+
+        <View
+                android:id="@+id/viewUsername"
+                android:layout_width="1dip"
+                android:layout_height="20dp"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="10dp"
+                android:layout_toRightOf="@id/registImageViewIconUsername"
+                android:background="@color/colorCursor"/>
+
+        <EditText
+                android:id="@+id/registEditEmail"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="10dp"
+                android:layout_toRightOf="@id/viewUsername"
+                android:background="@null"
+                android:ems="19"
+                android:hint="  请输入邮箱"
+                android:textColorHint="@color/colorCursor"
+                android:textCursorDrawable="@drawable/color_cursor"
+                android:textSize="15sp"/>
+
+        <ImageView
+                android:id="@+id/registImageViewUsernameClear"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:layout_marginRight="10dp"
+                android:src="@mipmap/ic_backspace_grey600_24dp"
+                android:visibility="invisible"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+            android:id="@+id/registRlPassword"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/registRlUsername"
+            android:layout_marginTop="1dp"
+            android:background="@drawable/rectangle_edittext">
+
+        <ImageView
+                android:id="@+id/registImageViewIconPassword"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:paddingBottom="15dp"
+                android:paddingLeft="30dp"
+                android:paddingTop="15dp"
+                android:src="@mipmap/ic_edittextupwd"/>
+
+        <View
+                android:id="@+id/viewPassword"
+                android:layout_width="1dip"
+                android:layout_height="20dp"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="10dp"
+                android:layout_toRightOf="@id/registImageViewIconPassword"
+                android:background="@color/colorCursor"/>
+
+        <EditText
+                android:id="@+id/registEditPassword"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="10dp"
+                android:layout_toRightOf="@id/viewPassword"
+                android:background="@null"
+                android:drawablePadding="5dp"
+                android:ems="19"
+                android:hint="  请输入密码"
+                android:inputType="textPassword"
+                android:textColorHint="@color/colorCursor"
+                android:textCursorDrawable="@drawable/color_cursor"
+                android:textSize="15sp"/>
+
+        <ImageView
+                android:id="@+id/registImageViewShowPass"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:layout_marginRight="10dp"
+                android:src="@mipmap/ic_showpass"
+                android:visibility="invisible"/>
+    </RelativeLayout>
+
+    <RelativeLayout
+            android:id="@+id/registRlSamePassword"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/registRlPassword"
+            android:layout_marginTop="1dp"
+            android:background="@drawable/rectangle_edittext">
+
+        <ImageView
+                android:id="@+id/registImageViewIconSamePassword"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:paddingBottom="15dp"
+                android:paddingLeft="30dp"
+                android:paddingTop="15dp"
+                android:src="@mipmap/ic_edittextupwd"/>
+
+        <View
+                android:id="@+id/viewSamePassword"
+                android:layout_width="1dip"
+                android:layout_height="20dp"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="10dp"
+                android:layout_toRightOf="@id/registImageViewIconSamePassword"
+                android:background="@color/colorCursor"/>
+
+        <EditText
+                android:id="@+id/registEditSamePassword"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="10dp"
+                android:layout_toRightOf="@id/viewSamePassword"
+                android:background="@null"
+                android:drawablePadding="5dp"
+                android:ems="19"
+                android:hint="  请重复密码"
+                android:inputType="textPassword"
+                android:textColorHint="@color/colorCursor"
+                android:textCursorDrawable="@drawable/color_cursor"
+                android:textSize="15sp"/>
+
+        <ImageView
+                android:id="@+id/registImageViewShowSamePass"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:layout_marginRight="10dp"
+                android:src="@mipmap/ic_showpass"
+                android:visibility="invisible"/>
+    </RelativeLayout>
+
+    <RadioGroup
+            android:id="@+id/registRadioGroupSex"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/registRlSamePassword"
+            android:layout_marginTop="20dp">
+        <LinearLayout
+                android:id="@+id/regsitRlRadio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="60dp"
+                android:layout_marginRight="60dp"
+                android:orientation="horizontal"
+                android:gravity="center">
+            <RadioButton
+                    android:id="@+id/registRadioButtonBoy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/blackTextColor"
+                    android:checked="true"
+                    android:text="Boy"/>
+            <RadioButton
+                    android:id="@+id/registRadioButtonGirl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/blackTextColor"
+                    android:layout_weight="1"
+                    android:text="Girl"/>
+        </LinearLayout>
+    </RadioGroup>
+
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/registRadioGroupSex"
+            android:orientation="horizontal"
+            android:layout_marginTop="20dp"
+            android:gravity="center">
+        <Button
+                android:id="@+id/registButtonRegist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginRight="30dp"
+                android:layout_marginLeft="30dp"
+                android:background="@drawable/round_corner_bg"
+                android:gravity="center"
+                android:text="注册"
+                android:textColor="@color/whiteTextColor"
+                android:textSize="18sp"/>
+    </LinearLayout>
+</RelativeLayout>
