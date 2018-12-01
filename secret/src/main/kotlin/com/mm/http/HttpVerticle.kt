@@ -200,7 +200,7 @@ class HttpVerticle : CoroutineVerticle() {
         if (!saveBoolean) throw AppRuntimeException("update activate error. please try again", SEND_EMAIL_ERROR)
         val message = MailMessage()
         message.from = "1035298618@qq.com"
-        message.to = arrayListOf("1035298618@qq.com")
+        message.to = arrayListOf(userInfo.email)
         message.text = "mSecret service activate"
         message.html = config.getString(CONFIG_ACTIVATE_MESSAGE_TEMPLATE).format(code,
                 config.getString(CONFIG_ACTIVATE_URL_TEMPLATE).format(userInfo.uuid, userInfo.email, code))
