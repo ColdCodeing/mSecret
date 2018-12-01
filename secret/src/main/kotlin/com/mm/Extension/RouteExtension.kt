@@ -11,20 +11,31 @@ import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.*
 import io.vertx.ext.web.sstore.LocalSessionStore
 import io.vertx.kotlin.coroutines.dispatcher
-import javafx.application.Application.launch
 import kotlinx.coroutines.experimental.launch
 
 fun RoutingContext.putSesssionVal(key: String, value: Any) {
     this.session().put(key, value)
 }
 
-fun <T> RoutingContext.getSessionVal(key: String, required: Boolean): T? {
+inline fun <reified T> RoutingContext.getSessionVal(key: String, required: Boolean): T? {
+    when (T::class) {
+        Int::class, Long::class, Boolean::class, Double::class, Float::class, String::class, Short::class, Character::class -> {
+            if (required) {
+                val value: T = this.session().get<T>(key)
+                        ?: throw AppRuntimeException("session %s is empty".format(key), SESSION_ERROR)
+                return value
+            } else {
+                return this.session().get<T>(key)
+            }
+        }
+    }
     if (required) {
-        val value: T = this.session().get<T>(key)
+        val value = this.session().get<String>(key)
                 ?: throw AppRuntimeException("session %s is empty".format(key), SESSION_ERROR)
-        return value
+        return value.fromJson()
     } else {
-        return this.session().get<T>(key)
+        val value:String = this.request().getParam(key)?: return null
+        return value.fromJson()
     }
 }
 

@@ -6,6 +6,7 @@ const val TOKEN_GENERATE_ERROR = 4004
 const val TOKEN_NON_EXIST = 4005
 const val REGIST_ERROR = 4006
 const val ACTIVATE_ERROR = 4007
+const val UN_ACTIVATE = 4007
 
 
 const val UNKNOW_ERROR = 5000

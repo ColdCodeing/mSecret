@@ -14,8 +14,14 @@ const val SQL_FIND_ACTIVATE_CODE_BY_UUID_AND_EMAIL = "select activate_code from 
         "where uuid = ? and email = ?"
 
 const val SQL_FIND_USER_PASS_BY_UUID =
-        "select unique_id, uuid, floor(extract(epoch from((updated_time - timestamp '1970-01-01 00:00:00')*1000))), data " +
-                "from t_user_pass where uuid = ?;"
-const val SQL_INSERT_USER_PASS = "insert into t_user_pass(uuid, data) values (?, ?) returning unique_id"
+        "select unique_id, uuid, weight, floor(extract(epoch from((updated_time - timestamp '1970-01-01 00:00:00')*1000))), data " +
+                "from t_user_pass where uuid = ? order by weight desc;"
+const val SQL_FIND_USER_PASS_BY_UUID_AND_UID =
+        "select unique_id, uuid, weight, floor(extract(epoch from((updated_time - timestamp '1970-01-01 00:00:00')*1000))), data " +
+                "from t_user_pass where uuid = ? and unique_id = ?;"
+const val SQL_INSERT_USER_PASS = "insert into t_user_pass(uuid, weight, data) values (?, ?, ?) returning unique_id"
 const val SQL_UPDATE_USER_PASS_BY_UID = "update t_user_pass set data = ? where unique_id = ?"
+const val SQL_UPDATE_USER_PASS_WEIGHT_BY_UID = "update t_user_pass set weight = ? where unique_id = ?"
+const val SQL_FIND_MAX_WEIGHT_WITH_UUID = "select max(weight) from t_user_pass where uuid = ?"
+const val SQL_FIND_WEIGHT_BY_UID = "select weight from t_user_pass where unique_id = ?"
 const val SQL_DELETE_USER_PASS_BY_UID = "delete from t_user_pass where unique_id = ?"

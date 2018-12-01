@@ -1,9 +1,7 @@
 package com.mm.Extension
 
-import io.vertx.core.json.Json
 import io.vertx.ext.sql.ResultSet
 import io.vertx.kotlin.core.json.get
-import java.text.FieldPosition
 
 inline fun <reified T> ResultSet.getJsonObject() : T? {
     return if (this.results.isNotEmpty()) {
