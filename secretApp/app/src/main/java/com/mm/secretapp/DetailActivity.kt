@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.os.StrictMode
 import android.support.v4.app.Fragment
 import android.support.v7.app.AppCompatActivity
 import android.view.Menu
@@ -53,6 +54,11 @@ class DetailActivity: AppCompatActivity() {
         super.onCreate(savedInstanceState)
         CommonManager.setTranslucentBar(window)
         setContentView(R.layout.activity_detail)
+        if (android.os.Build.VERSION.SDK_INT > 9)
+        {
+            val policy = StrictMode.ThreadPolicy.Builder().permitAll().build();
+            StrictMode.setThreadPolicy(policy);
+        }
 
         sharedPreferences = getSharedPreferences("usermessage", Context.MODE_PRIVATE)
         okHttpClient = OkHttpClient.Builder()

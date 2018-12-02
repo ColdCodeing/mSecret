@@ -8,6 +8,7 @@ import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
+import android.os.StrictMode
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
@@ -53,6 +54,11 @@ class MainActivity : AppCompatActivity() {
         CommonManager.setTranslucentBar(window)
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
+        if (android.os.Build.VERSION.SDK_INT > 9)
+        {
+            val policy = StrictMode.ThreadPolicy.Builder().permitAll().build();
+            StrictMode.setThreadPolicy(policy);
+        }
 
         sharedPreferences = getSharedPreferences("usermessage", Context.MODE_PRIVATE)
         okHttpClient = OkHttpClient.Builder()
